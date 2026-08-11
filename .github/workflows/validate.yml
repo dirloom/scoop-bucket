@@ -1,0 +1,61 @@
+name: Validate manifests
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: windows-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Validate manifests and release artifacts
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = "Stop"
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+
+          $manifests = Get-ChildItem -LiteralPath . -Filter "*.json" -File
+          if ($manifests.Count -eq 0) {
+            throw "No Scoop manifests found."
+          }
+
+          foreach ($manifestFile in $manifests) {
+            $manifest = Get-Content -LiteralPath $manifestFile.FullName -Raw | ConvertFrom-Json
+            foreach ($property in @("version", "description", "homepage", "license", "architecture", "bin")) {
+              if ($null -eq $manifest.$property) {
+                throw "$($manifestFile.Name) is missing '$property'."
+              }
+            }
+
+            foreach ($architecture in @("64bit", "arm64")) {
+              $artifact = $manifest.architecture.$architecture
+              if ($null -eq $artifact.url -or $null -eq $artifact.hash) {
+                throw "$($manifestFile.Name) is missing URL or hash for $architecture."
+              }
+
+              $download = Join-Path $env:RUNNER_TEMP "$($manifestFile.BaseName)-$architecture.zip"
+              Invoke-WebRequest -Uri $artifact.url -OutFile $download
+
+              $actualHash = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToLowerInvariant()
+              if ($actualHash -ne $artifact.hash.ToLowerInvariant()) {
+                throw "SHA-256 mismatch for $($manifestFile.Name) ($architecture)."
+              }
+
+              $archive = [System.IO.Compression.ZipFile]::OpenRead($download)
+              try {
+                if (-not ($archive.Entries | Where-Object FullName -EQ $manifest.bin)) {
+                  throw "$($manifest.bin) is missing from the $architecture archive."
+                }
+              } finally {
+                $archive.Dispose()
+              }
+            }
+          }
