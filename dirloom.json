@@ -1,16 +1,16 @@
 {
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "A fast, deterministic, cross-platform directory tree CLI.",
   "homepage": "https://github.com/dirloom/dirloom",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/dirloom/dirloom/releases/download/v0.1.0/dirloom_Windows_x86_64.zip",
-      "hash": "c72734d8706b335886f0789a89c6f23ffc1781a1b7d59c42d917b9d7a854e8be"
+      "url": "https://github.com/dirloom/dirloom/releases/download/v0.1.1/dirloom_Windows_x86_64.zip",
+      "hash": "3bbd704956c9adf2b41efb7abf88f86ddf476635bb366983762555526796a256"
     },
     "arm64": {
-      "url": "https://github.com/dirloom/dirloom/releases/download/v0.1.0/dirloom_Windows_arm64.zip",
-      "hash": "f7ad20348bc60207dbf3935fd6c766180760db27a00d558b07ec8851b6dc011d"
+      "url": "https://github.com/dirloom/dirloom/releases/download/v0.1.1/dirloom_Windows_arm64.zip",
+      "hash": "2995a9daf6aba00724fafc17c4de9419a127ac5ec47f5d4c791f256bd803e6f8"
     }
   },
   "bin": "dirloom.exe"
