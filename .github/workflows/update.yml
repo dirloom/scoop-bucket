@@ -1,0 +1,91 @@
+name: Update manifest
+
+on:
+  schedule:
+    - cron: "17 */6 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: update-dirloom-manifest
+  cancel-in-progress: false
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out bucket
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+
+      - name: Update from the latest Dirloom release
+        id: update
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $ErrorActionPreference = "Stop"
+          $headers = @{
+            Accept = "application/vnd.github+json"
+            Authorization = "Bearer $env:GH_TOKEN"
+            "X-GitHub-Api-Version" = "2022-11-28"
+          }
+
+          $release = Invoke-RestMethod `
+            -Uri "https://api.github.com/repos/dirloom/dirloom/releases/latest" `
+            -Headers $headers
+
+          if ($release.draft -or $release.prerelease) {
+            throw "The latest GitHub release is not a stable published release."
+          }
+
+          $version = $release.tag_name -replace '^v', ''
+          $manifestPath = Join-Path $PWD "dirloom.json"
+          $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
+
+          $targets = @{
+            "64bit" = "dirloom_Windows_x86_64.zip"
+            "arm64" = "dirloom_Windows_arm64.zip"
+          }
+
+          foreach ($architecture in $targets.Keys) {
+            $assetName = $targets[$architecture]
+            $asset = $release.assets | Where-Object name -EQ $assetName
+            if ($null -eq $asset) {
+              throw "Release $($release.tag_name) does not contain $assetName."
+            }
+
+            $download = Join-Path $env:RUNNER_TEMP $assetName
+            Invoke-WebRequest -Uri $asset.browser_download_url -OutFile $download
+            $hash = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToLowerInvariant()
+
+            $manifest.architecture.$architecture.url = $asset.browser_download_url
+            $manifest.architecture.$architecture.hash = $hash
+          }
+
+          $manifest.version = $version
+          $json = ($manifest | ConvertTo-Json -Depth 10) + [Environment]::NewLine
+          [System.IO.File]::WriteAllText(
+            $manifestPath,
+            $json,
+            [System.Text.UTF8Encoding]::new($false)
+          )
+
+          "version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Append -Encoding utf8
+
+      - name: Commit an updated manifest
+        shell: bash
+        env:
+          VERSION: ${{ steps.update.outputs.version }}
+        run: |
+          if git diff --quiet -- dirloom.json; then
+            echo "dirloom.json is already current."
+            exit 0
+          fi
+
+          git config user.name "dirloom-release-bot"
+          git config user.email "releases@dirloom.dev"
+          git add -- dirloom.json
+          git commit -m "chore: update Dirloom to ${VERSION}"
+          git push origin HEAD:main
