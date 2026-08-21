@@ -2,6 +2,8 @@
 
 Official Scoop bucket for [Dirloom](https://github.com/dirloom/dirloom).
 
+GitHub Releases is the only artifact source. This bucket never rebuilds Dirloom.
+
 ## Install
 
 ```powershell
@@ -16,8 +18,12 @@ scoop update
 scoop update dirloom
 ```
 
-The manifest is updated by Dirloom's signed release workflow. Every download is
-verified against the SHA-256 digest published for its release artifact.
+## Updates
+
+Version bumps are opened as pull requests. Direct pushes to `main` are not used.
+Mechanical version PRs need one maintainer approval; workflow changes need two
+independent approvals. Every download is verified against the SHA-256 digest of
+the official GitHub Release archive.
 
 ## License
 
