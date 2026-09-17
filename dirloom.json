@@ -1,16 +1,16 @@
 {
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Clean project trees for humans and AI",
   "homepage": "https://github.com/dirloom/dirloom",
   "license": "MIT",
   "architecture": {
     "64bit": {
-      "url": "https://github.com/dirloom/dirloom/releases/download/v0.2.0/dirloom_Windows_x86_64.zip",
-      "hash": "564a68fcfe224d305172d12ea05b214d8f23efc08d4e6dd3ba2bcf6753c7d41d"
+      "url": "https://github.com/dirloom/dirloom/releases/download/v0.3.0/dirloom_Windows_x86_64.zip",
+      "hash": "c6c8866dfd6dcf8707a2f93f5c349cc36e9a75dc406e2dac28ec88eea151490e"
     },
     "arm64": {
-      "url": "https://github.com/dirloom/dirloom/releases/download/v0.2.0/dirloom_Windows_arm64.zip",
-      "hash": "3cee380be156bfe0341ddd8c4f6e3e555de759ca383486f0152147552cc126cd"
+      "url": "https://github.com/dirloom/dirloom/releases/download/v0.3.0/dirloom_Windows_arm64.zip",
+      "hash": "b1255e8871f1671b8fed1afe284e20e09f185da53b635b87fa16622712ea9c9b"
     }
   },
   "bin": "dirloom.exe",
