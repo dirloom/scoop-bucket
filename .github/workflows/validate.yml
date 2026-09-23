@@ -45,7 +45,8 @@ jobs:
               Invoke-WebRequest -Uri $artifact.url -OutFile $download
 
               $actualHash = (Get-FileHash -LiteralPath $download -Algorithm SHA256).Hash.ToLowerInvariant()
-              if ($actualHash -ne $artifact.hash.ToLowerInvariant()) {
+              $expectedHash = $artifact.hash.ToLowerInvariant() -replace '^sha256:', ''
+              if ($actualHash -ne $expectedHash) {
                 throw "SHA-256 mismatch for $($manifestFile.Name) ($architecture)."
               }
 
@@ -56,6 +57,20 @@ jobs:
                 }
               } finally {
                 $archive.Dispose()
+              }
+
+              if ($architecture -eq "64bit") {
+                $extract = Join-Path $env:RUNNER_TEMP "extract-$($manifestFile.BaseName)"
+                if (Test-Path $extract) {
+                  Remove-Item -Recurse -Force $extract
+                }
+                Expand-Archive -LiteralPath $download -DestinationPath $extract
+                $binary = Join-Path $extract $manifest.bin
+                $versionOutput = & $binary --version
+                if ($LASTEXITCODE -ne 0) {
+                  throw "$($manifest.bin) --version failed."
+                }
+                Write-Host $versionOutput
               }
             }
           }
