@@ -22,8 +22,9 @@ scoop update dirloom
 
 Version bumps are opened as pull requests. Direct pushes to `main` are not used.
 Mechanical version PRs require one Code Owner approval and a passing `validate`
-check. Workflow changes follow the same protected-branch requirements. Every download is verified against the SHA-256 digest of
-the official GitHub Release archive.
+check. Workflow changes follow the same protected-branch requirements. Every
+download is verified against the SHA-256 digest of the official GitHub Release
+archive.
 
 ## License
 
