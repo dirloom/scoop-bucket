@@ -49,6 +49,29 @@ jobs:
           fi
           TAG="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
           VERSION="${TAG#v}"
+          current="$(python3 -c 'import json; print(json.load(open("dirloom.json")).get("version",""))')"
+          if [[ "$current" == "$VERSION" ]]; then
+            echo "Scoop manifest already at ${VERSION}"
+            exit 0
+          fi
+          latest="$(printf '%s\n%s\n' "$current" "$VERSION" | sort -V | tail -n1)"
+          if [[ "$latest" != "$VERSION" ]]; then
+            echo "Refusing to regress Scoop from ${current} to ${VERSION}"
+            exit 1
+          fi
+          branch="dirloom-${VERSION}"
+          count="$(
+            GH_TOKEN="$APP_GH_TOKEN" \
+            gh pr list \
+              --head "$branch" \
+              --state open \
+              --json number \
+              --jq 'length'
+          )"
+          if [[ "${count:-0}" -ge 1 ]]; then
+            echo "Scoop PR already open for ${VERSION}"
+            exit 0
+          fi
           work="$(mktemp -d)"
           GH_TOKEN="$SOURCE_GH_TOKEN" \
             gh release download "$TAG" \
@@ -75,30 +98,7 @@ jobs:
           test "$actual_arm" = "$win_arm"
           unzip -l "$work/dirloom_Windows_x86_64.zip" | grep -q 'dirloom.exe'
           unzip -l "$work/dirloom_Windows_arm64.zip" | grep -q 'dirloom.exe'
-          branch="dirloom-${VERSION}"
-          count="$(
-            GH_TOKEN="$APP_GH_TOKEN" \
-            gh pr list \
-              --head "$branch" \
-              --state open \
-              --json number \
-              --jq 'length'
-          )"
-          if [[ "${count:-0}" -ge 1 ]]; then
-            echo "Scoop PR already open for ${VERSION}"
-            exit 0
-          fi
           git checkout -B "$branch"
-          current="$(python3 -c 'import json; print(json.load(open("dirloom.json")).get("version",""))')"
-          if [[ "$current" == "$VERSION" ]]; then
-            echo "Scoop manifest already at ${VERSION}"
-            exit 0
-          fi
-          latest="$(printf '%s\n%s\n' "$current" "$VERSION" | sort -V | tail -n1)"
-          if [[ "$latest" != "$VERSION" ]]; then
-            echo "Refusing to regress Scoop from ${current} to ${VERSION}"
-            exit 1
-          fi
           python3 - <<PY
           from pathlib import Path
           import json
