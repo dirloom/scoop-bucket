@@ -6,8 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 concurrency:
   group: update-dirloom-manifest
@@ -18,15 +17,30 @@ jobs:
     name: Open version PR
     runs-on: ubuntu-latest
     steps:
+      - name: Create package app token
+        id: app-token
+        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
+        with:
+          client-id: ${{ vars.DIRLOOM_PACKAGE_APP_CLIENT_ID }}
+          private-key: ${{ secrets.DIRLOOM_PACKAGE_APP_PRIVATE_KEY }}
+          permission-contents: write
+          permission-pull-requests: write
+
       - name: Check out bucket
         uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          token: ${{ steps.app-token.outputs.token }}
 
       - name: Build an idempotent version branch
         env:
-          GH_TOKEN: ${{ github.token }}
+          SOURCE_GH_TOKEN: ${{ github.token }}
+          APP_GH_TOKEN: ${{ steps.app-token.outputs.token }}
         run: |
           set -euo pipefail
-          payload="$(gh api repos/dirloom/dirloom/releases/latest)"
+          payload="$(
+            GH_TOKEN="$SOURCE_GH_TOKEN" \
+            gh api repos/dirloom/dirloom/releases/latest
+          )"
           draft="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["draft"])')"
           prerelease="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["prerelease"])')"
           if [[ "$draft" != "False" || "$prerelease" != "False" ]]; then
@@ -36,9 +50,21 @@ jobs:
           TAG="$(printf '%s' "$payload" | python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"])')"
           VERSION="${TAG#v}"
           work="$(mktemp -d)"
-          gh release download "$TAG" --repo dirloom/dirloom --pattern checksums.txt --dir "$work"
-          gh release download "$TAG" --repo dirloom/dirloom --pattern dirloom_Windows_x86_64.zip --dir "$work"
-          gh release download "$TAG" --repo dirloom/dirloom --pattern dirloom_Windows_arm64.zip --dir "$work"
+          GH_TOKEN="$SOURCE_GH_TOKEN" \
+            gh release download "$TAG" \
+            --repo dirloom/dirloom \
+            --pattern checksums.txt \
+            --dir "$work"
+          GH_TOKEN="$SOURCE_GH_TOKEN" \
+            gh release download "$TAG" \
+            --repo dirloom/dirloom \
+            --pattern dirloom_Windows_x86_64.zip \
+            --dir "$work"
+          GH_TOKEN="$SOURCE_GH_TOKEN" \
+            gh release download "$TAG" \
+            --repo dirloom/dirloom \
+            --pattern dirloom_Windows_arm64.zip \
+            --dir "$work"
           checksum_hash() { awk -v name="$1" '$2==name{print $1}' "$work/checksums.txt"; }
           win_x64="$(checksum_hash dirloom_Windows_x86_64.zip)"
           win_arm="$(checksum_hash dirloom_Windows_arm64.zip)"
@@ -50,7 +76,14 @@ jobs:
           unzip -l "$work/dirloom_Windows_x86_64.zip" | grep -q 'dirloom.exe'
           unzip -l "$work/dirloom_Windows_arm64.zip" | grep -q 'dirloom.exe'
           branch="dirloom-${VERSION}"
-          count="$(gh pr list --head "$branch" --state open --json number --jq 'length')"
+          count="$(
+            GH_TOKEN="$APP_GH_TOKEN" \
+            gh pr list \
+              --head "$branch" \
+              --state open \
+              --json number \
+              --jq 'length'
+          )"
           if [[ "${count:-0}" -ge 1 ]]; then
             echo "Scoop PR already open for ${VERSION}"
             exit 0
@@ -84,4 +117,8 @@ jobs:
           fi
           git -c user.name="dirloom-package-bot" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -m "chore: update Dirloom to ${VERSION}"
           git push -u origin "$branch"
-          gh pr create --head "$branch" --title "dirloom ${VERSION}" --body "Update Scoop to GitHub Release ${TAG}. Hashes were recalculated independently from checksums.txt. Do not merge without the Validate manifests check."
+          GH_TOKEN="$APP_GH_TOKEN" \
+            gh pr create \
+              --head "$branch" \
+              --title "dirloom ${VERSION}" \
+              --body "Update Scoop to GitHub Release ${TAG}. Hashes were recalculated independently from checksums.txt. Do not merge without the Validate manifests check."
