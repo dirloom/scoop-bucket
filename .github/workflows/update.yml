@@ -15,7 +15,7 @@ concurrency:
 jobs:
   update:
     name: Open version PR
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     steps:
       - name: Create package app token
         id: app-token
